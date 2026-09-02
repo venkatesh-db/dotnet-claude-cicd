@@ -14,6 +14,8 @@ jobs:
   triage:
     if: ${{ github.event.workflow_run.conclusion == 'failure' }}
     runs-on: ubuntu-latest
+    outputs:
+      issue_number: ${{ steps.create-issue.outputs.issue_number }}
     steps:
       - name: Fetch failed run logs
         env:
@@ -72,11 +74,100 @@ jobs:
           cat summary.md
 
       - name: Open triage issue
+        id: create-issue
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh issue create \
+          ISSUE_URL=$(gh issue create \
             --repo ${{ github.repository }} \
             --title "CI failure: run #${{ github.event.workflow_run.id }} on ${{ github.event.workflow_run.head_branch }}" \
             --body-file summary.md \
-            --label "triage:ci-failure"
+            --label "triage:ci-failure")
+          echo "issue_number=${ISSUE_URL##*/}" >> "$GITHUB_OUTPUT"
+
+  propose-patch:
+    needs: triage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Fetch triage issue content
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue view ${{ needs.triage.outputs.issue_number }} --repo ${{ github.repository }} --json title,body \
+            --jq '.title' > issue-title.txt
+          gh issue view ${{ needs.triage.outputs.issue_number }} --repo ${{ github.repository }} --json title,body \
+            --jq '.body' > issue-body.txt
+
+      - name: Ask Claude to draft an incident note and proposed fix
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          python3 - <<'PYEOF'
+          import json
+
+          with open("issue-title.txt") as f:
+              title = f.read().strip()
+          with open("issue-body.txt") as f:
+              body = f.read()
+
+          prompt = (
+              "Write a markdown incident note for this CI-failure triage issue. "
+              "Include: Root Cause, Evidence, and a concrete Proposed Fix "
+              "(code-level, referencing likely file paths if inferable).\n\n"
+              f"Issue title: {title}\n\nIssue body:\n\n{body}"
+          )
+
+          payload = {
+              "model": "claude-sonnet-4-5",
+              "max_tokens": 800,
+              "messages": [{"role": "user", "content": prompt}],
+          }
+
+          with open("payload.json", "w") as f:
+              json.dump(payload, f)
+          PYEOF
+
+          curl -sS https://api.anthropic.com/v1/messages \
+            -H "x-api-key: $ANTHROPIC_API_KEY" \
+            -H "anthropic-version: 2023-06-01" \
+            -H "content-type: application/json" \
+            -d @payload.json > response.json
+
+          python3 - <<'PYEOF'
+          import json
+          import sys
+
+          with open("response.json") as f:
+              response = json.load(f)
+
+          if "content" not in response:
+              print("Anthropic API error response:", file=sys.stderr)
+              print(json.dumps(response, indent=2), file=sys.stderr)
+              sys.exit(1)
+
+          with open("patch-note.md", "w") as f:
+              f.write(response["content"][0]["text"])
+          PYEOF
+
+          cat patch-note.md
+          echo "Proposed fix for CI failure described in #${{ needs.triage.outputs.issue_number }}. See body for root cause and suggested change." > pr-body.md
+
+      - name: Run patch proposal (creates draft PR)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+          BASE_BRANCH: main
+          NEW_BRANCH: patch-proposal/issue-${{ needs.triage.outputs.issue_number }}
+          PR_TITLE: "fix: proposed patch for #${{ needs.triage.outputs.issue_number }}"
+          PR_BODY_FILE: pr-body.md
+          PATCH_FILE_PATH: docs/incidents/issue-${{ needs.triage.outputs.issue_number }}.md
+          PATCH_CONTENT_FILE: patch-note.md
+        run: dotnet run --project tools/PatchProposalRunner
