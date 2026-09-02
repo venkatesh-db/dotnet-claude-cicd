@@ -1,0 +1,55 @@
+name: Claude CI Failure Triage
+
+on:
+  workflow_run:
+    workflows: ["Build and Test"]
+    types: [completed]
+
+permissions:
+  contents: read
+  issues: write
+  actions: read
+
+jobs:
+  triage:
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch failed run logs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh run view ${{ github.event.workflow_run.id }} --log-failed --repo ${{ github.repository }} > failure.log || true
+          head -c 40000 failure.log > failure.trimmed.log
+
+      - name: Ask Claude to summarize root cause
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          RESPONSE=$(curl -sS https://api.anthropic.com/v1/messages \
+            -H "x-api-key: $ANTHROPIC_API_KEY" \
+            -H "anthropic-version: 2023-06-01" \
+            -H "content-type: application/json" \
+            -d @- <<JSON
+          {
+            "model": "claude-sonnet-4-5",
+            "max_tokens": 512,
+            "messages": [{
+              "role": "user",
+              "content": "This is a failed CI run log. Summarize the root cause in 3-5 sentences and suggest the likely fix. Log:\n\n$(python3 -c 'import json; print(json.dumps(open("failure.trimmed.log").read()))')"
+            }]
+          }
+          JSON
+          )
+          echo "$RESPONSE" | python3 -c "import json,sys; print(json.load(sys.stdin)['content'][0]['text'])" > summary.md
+          cat summary.md
+
+      - name: Open triage issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create \
+            --repo ${{ github.repository }} \
+            --title "CI failure: run #${{ github.event.workflow_run.id }} on ${{ github.event.workflow_run.head_branch }}" \
+            --body-file summary.md \
+            --label "triage:ci-failure"
