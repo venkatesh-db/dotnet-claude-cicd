@@ -1,0 +1,90 @@
+name: Claude Patch Proposal
+
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: read
+
+jobs:
+  propose-patch:
+    if: ${{ github.event.label.name == 'triage:ci-failure' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Ask Claude to draft an incident note and proposed fix
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          python3 - <<'PYEOF'
+          import json
+          import os
+
+          title = os.environ["ISSUE_TITLE"]
+          body = os.environ.get("ISSUE_BODY") or ""
+
+          prompt = (
+              "Write a markdown incident note for this CI-failure triage issue. "
+              "Include: Root Cause, Evidence, and a concrete Proposed Fix "
+              "(code-level, referencing likely file paths if inferable).\n\n"
+              f"Issue title: {title}\n\nIssue body:\n\n{body}"
+          )
+
+          payload = {
+              "model": "claude-sonnet-4-5",
+              "max_tokens": 800,
+              "messages": [{"role": "user", "content": prompt}],
+          }
+
+          with open("payload.json", "w") as f:
+              json.dump(payload, f)
+          PYEOF
+
+          curl -sS https://api.anthropic.com/v1/messages \
+            -H "x-api-key: $ANTHROPIC_API_KEY" \
+            -H "anthropic-version: 2023-06-01" \
+            -H "content-type: application/json" \
+            -d @payload.json > response.json
+
+          python3 - <<'PYEOF'
+          import json
+          import sys
+
+          with open("response.json") as f:
+              response = json.load(f)
+
+          if "content" not in response:
+              print("Anthropic API error response:", file=sys.stderr)
+              print(json.dumps(response, indent=2), file=sys.stderr)
+              sys.exit(1)
+
+          with open("patch-note.md", "w") as f:
+              f.write(response["content"][0]["text"])
+          PYEOF
+
+          cat patch-note.md
+          echo "Proposed fix for CI failure described in #${{ github.event.issue.number }}. See body for root cause and suggested change." > pr-body.md
+
+      - name: Run patch proposal (creates draft PR)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+          BASE_BRANCH: main
+          NEW_BRANCH: patch-proposal/issue-${{ github.event.issue.number }}
+          PR_TITLE: "fix: proposed patch for #${{ github.event.issue.number }}"
+          PR_BODY_FILE: pr-body.md
+          PATCH_FILE_PATH: docs/incidents/issue-${{ github.event.issue.number }}.md
+          PATCH_CONTENT_FILE: patch-note.md
+        run: dotnet run --project tools/PatchProposalRunner

@@ -26,22 +26,49 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          RESPONSE=$(curl -sS https://api.anthropic.com/v1/messages \
+          python3 - <<'PYEOF'
+          import json
+
+          with open("failure.trimmed.log") as f:
+              log = f.read()
+
+          prompt = (
+              "This is a failed CI run log. Summarize the root cause in 3-5 "
+              "sentences and suggest the likely fix. Log:\n\n" + log
+          )
+
+          payload = {
+              "model": "claude-sonnet-4-5",
+              "max_tokens": 512,
+              "messages": [{"role": "user", "content": prompt}],
+          }
+
+          with open("payload.json", "w") as f:
+              json.dump(payload, f)
+          PYEOF
+
+          curl -sS https://api.anthropic.com/v1/messages \
             -H "x-api-key: $ANTHROPIC_API_KEY" \
             -H "anthropic-version: 2023-06-01" \
             -H "content-type: application/json" \
-            -d @- <<JSON
-          {
-            "model": "claude-sonnet-4-5",
-            "max_tokens": 512,
-            "messages": [{
-              "role": "user",
-              "content": "This is a failed CI run log. Summarize the root cause in 3-5 sentences and suggest the likely fix. Log:\n\n$(python3 -c 'import json; print(json.dumps(open("failure.trimmed.log").read()))')"
-            }]
-          }
-          JSON
-          )
-          echo "$RESPONSE" | python3 -c "import json,sys; print(json.load(sys.stdin)['content'][0]['text'])" > summary.md
+            -d @payload.json > response.json
+
+          python3 - <<'PYEOF'
+          import json
+          import sys
+
+          with open("response.json") as f:
+              response = json.load(f)
+
+          if "content" not in response:
+              print("Anthropic API error response:", file=sys.stderr)
+              print(json.dumps(response, indent=2), file=sys.stderr)
+              sys.exit(1)
+
+          with open("summary.md", "w") as f:
+              f.write(response["content"][0]["text"])
+          PYEOF
+
           cat summary.md
 
       - name: Open triage issue
