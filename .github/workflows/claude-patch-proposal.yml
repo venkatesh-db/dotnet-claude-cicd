@@ -22,28 +22,59 @@ jobs:
           dotnet-version: "8.0.x"
 
       - name: Ask Claude to draft an incident note and proposed fix
-        run: |
-          RESPONSE=$(curl -sS https://api.anthropic.com/v1/messages \
-            -H "x-api-key: $ANTHROPIC_API_KEY" \
-            -H "anthropic-version: 2023-06-01" \
-            -H "content-type: application/json" \
-            -d @- <<JSON
-          {
-            "model": "claude-sonnet-4-5",
-            "max_tokens": 800,
-            "messages": [{
-              "role": "user",
-              "content": "Write a markdown incident note for this CI-failure triage issue. Include: Root Cause, Evidence, and a concrete Proposed Fix (code-level, referencing likely file paths if inferable). Issue title: $(python3 -c 'import json,os; print(json.dumps(os.environ["ISSUE_TITLE"]))'). Issue body:\n\n$(python3 -c 'import json,os; print(json.dumps(os.environ["ISSUE_BODY"]))')"
-            }]
-          }
-          JSON
-          )
-          echo "$RESPONSE" | python3 -c "import json,sys; print(json.load(sys.stdin)['content'][0]['text'])" > patch-note.md
-          echo "Proposed fix for CI failure described in #${{ github.event.issue.number }}. See body for root cause and suggested change." > pr-body.md
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           ISSUE_TITLE: ${{ github.event.issue.title }}
           ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          python3 - <<'PYEOF'
+          import json
+          import os
+
+          title = os.environ["ISSUE_TITLE"]
+          body = os.environ.get("ISSUE_BODY") or ""
+
+          prompt = (
+              "Write a markdown incident note for this CI-failure triage issue. "
+              "Include: Root Cause, Evidence, and a concrete Proposed Fix "
+              "(code-level, referencing likely file paths if inferable).\n\n"
+              f"Issue title: {title}\n\nIssue body:\n\n{body}"
+          )
+
+          payload = {
+              "model": "claude-sonnet-4-5",
+              "max_tokens": 800,
+              "messages": [{"role": "user", "content": prompt}],
+          }
+
+          with open("payload.json", "w") as f:
+              json.dump(payload, f)
+          PYEOF
+
+          curl -sS https://api.anthropic.com/v1/messages \
+            -H "x-api-key: $ANTHROPIC_API_KEY" \
+            -H "anthropic-version: 2023-06-01" \
+            -H "content-type: application/json" \
+            -d @payload.json > response.json
+
+          python3 - <<'PYEOF'
+          import json
+          import sys
+
+          with open("response.json") as f:
+              response = json.load(f)
+
+          if "content" not in response:
+              print("Anthropic API error response:", file=sys.stderr)
+              print(json.dumps(response, indent=2), file=sys.stderr)
+              sys.exit(1)
+
+          with open("patch-note.md", "w") as f:
+              f.write(response["content"][0]["text"])
+          PYEOF
+
+          cat patch-note.md
+          echo "Proposed fix for CI failure described in #${{ github.event.issue.number }}. See body for root cause and suggested change." > pr-body.md
 
       - name: Run patch proposal (creates draft PR)
         env:

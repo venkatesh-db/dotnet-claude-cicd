@@ -28,23 +28,52 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          DIFF_CONTENT=$(cat pr.diff | head -c 60000)
-          RESPONSE=$(curl -sS https://api.anthropic.com/v1/messages \
+          head -c 60000 pr.diff > pr.trimmed.diff
+
+          python3 - <<'PYEOF'
+          import json
+
+          with open("pr.trimmed.diff") as f:
+              diff = f.read()
+
+          prompt = (
+              "Review this pull request diff for correctness bugs, security issues, "
+              "and missing test coverage. Be concise, use markdown, cite file/line "
+              "where possible.\n\n" + diff
+          )
+
+          payload = {
+              "model": "claude-sonnet-4-5",
+              "max_tokens": 1024,
+              "messages": [{"role": "user", "content": prompt}],
+          }
+
+          with open("payload.json", "w") as f:
+              json.dump(payload, f)
+          PYEOF
+
+          curl -sS https://api.anthropic.com/v1/messages \
             -H "x-api-key: $ANTHROPIC_API_KEY" \
             -H "anthropic-version: 2023-06-01" \
             -H "content-type: application/json" \
-            -d @- <<JSON
-          {
-            "model": "claude-sonnet-4-5",
-            "max_tokens": 1024,
-            "messages": [{
-              "role": "user",
-              "content": "Review this pull request diff for correctness bugs, security issues, and missing test coverage. Be concise, use markdown, cite file/line where possible.\n\n$(python3 -c 'import json,sys; print(json.dumps(open("pr.diff").read()))')"
-            }]
-          }
-          JSON
-          )
-          echo "$RESPONSE" | python3 -c "import json,sys; print(json.load(sys.stdin)['content'][0]['text'])" > review.md
+            -d @payload.json > response.json
+
+          python3 - <<'PYEOF'
+          import json
+          import sys
+
+          with open("response.json") as f:
+              response = json.load(f)
+
+          if "content" not in response:
+              print("Anthropic API error response:", file=sys.stderr)
+              print(json.dumps(response, indent=2), file=sys.stderr)
+              sys.exit(1)
+
+          with open("review.md", "w") as f:
+              f.write(response["content"][0]["text"])
+          PYEOF
+
           cat review.md
 
       - name: Post review as PR comment
