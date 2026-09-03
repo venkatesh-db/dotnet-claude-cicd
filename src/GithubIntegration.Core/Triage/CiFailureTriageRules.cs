@@ -12,6 +12,7 @@ public static class CiFailureTriageRules
         ("error CS", "build:compile-error"),
         ("Assert.", "test:assertion-failure"),
         ("OutOfMemory", "infra:resource-limit"),
+        ("Unauthorized", "auth:credential-issue"),
     };
 
     public static IReadOnlyList<string> LabelsFor(string failureLog)
