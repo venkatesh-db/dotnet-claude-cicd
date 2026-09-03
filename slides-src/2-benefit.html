@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+html { background: #F2F3F5; }
+body {
+  width: 720pt; height: 405pt; margin: 0; padding: 0;
+  background: #F2F3F5; font-family: Arial, sans-serif;
+  display: flex; flex-direction: column;
+}
+.head { margin: 26pt 30pt 0 30pt; }
+.eyebrow { color: #C8622F; font-family: "Courier New", monospace; font-size: 11pt; letter-spacing: 1.5pt; margin: 0 0 6pt 0; }
+h1 { color: #1A1D23; font-family: "Trebuchet MS", sans-serif; font-size: 24pt; font-weight: bold; margin: 0; }
+
+.legend { margin: 10pt 30pt 0 30pt; display: flex; align-items: center; }
+.swatch { width: 10pt; height: 10pt; border-radius: 2pt; margin-right: 6pt; }
+.legenditem { display: flex; align-items: center; margin-right: 22pt; }
+.legend p { font-family: "Courier New", monospace; font-size: 10pt; color: #5B6472; margin: 0; }
+
+.grid { margin: 18pt 30pt 0 30pt; display: flex; }
+.col { width: 206pt; margin-right: 20pt; }
+.colhead { text-align: center; margin: 0 0 10pt 0; }
+.colhead p { font-family: "Trebuchet MS", sans-serif; font-size: 13pt; font-weight: bold; color: #1A1D23; margin: 0; }
+
+.box { border-radius: 8pt; padding: 12pt; height: 58pt; }
+.box-slow { background: #F1E6D3; border: 2px solid #9A6B3F; }
+.box-fast { background: #DCF0E3; border: 2px solid #2F8A5A; margin-top: 26pt; }
+.box p { margin: 0; font-family: Arial, sans-serif; }
+.box .lead { font-size: 12pt; font-weight: bold; color: #1A1D23; }
+.box .sub { font-size: 9.5pt; color: #5B6472; margin-top: 3pt; }
+
+.arrowcol { width: 24pt; display: flex; align-items: center; justify-content: center; margin-top: 84pt; }
+.arrowcol p { font-family: Arial, sans-serif; font-size: 16pt; color: #9AA3AF; margin: 0; }
+
+.rowlabels { margin: 10pt 30pt 0 30pt; display: flex; }
+.rowlabels p { font-family: "Courier New", monospace; font-size: 9.5pt; color: #9A6B3F; margin: 0; }
+
+.foot { margin: 20pt 30pt 0 30pt; }
+.foot p { font-family: Arial, sans-serif; font-size: 11.5pt; color: #5B6472; margin: 0; font-style: italic; }
+</style>
+</head>
+<body>
+<div class="head">
+  <p class="eyebrow">THE BENEFIT, IN PLAIN TERMS</p>
+  <h1>Nothing waits on a person to start</h1>
+</div>
+
+<div class="legend">
+  <div class="legenditem">
+    <div class="swatch" style="background: #9A6B3F;"></div>
+    <p>WITHOUT — a person has to do it first</p>
+  </div>
+  <div class="legenditem">
+    <div class="swatch" style="background: #2F8A5A;"></div>
+    <p>WITH CLAUDE — Claude does it first</p>
+  </div>
+</div>
+
+<div class="grid">
+  <div class="col">
+    <div class="colhead"><p>Someone opens a PR</p></div>
+    <div class="box box-slow">
+      <p class="lead">A teammate reviews it</p>
+      <p class="sub">whenever they're free — hours to days</p>
+    </div>
+    <div class="box box-fast">
+      <p class="lead">Claude reviews it first</p>
+      <p class="sub">automatically — about a minute</p>
+    </div>
+  </div>
+  <div class="col">
+    <div class="colhead"><p>A build breaks</p></div>
+    <div class="box box-slow">
+      <p class="lead">Someone digs through logs</p>
+      <p class="sub">once they notice — 20-30+ minutes</p>
+    </div>
+    <div class="box box-fast">
+      <p class="lead">Claude explains why</p>
+      <p class="sub">opens an issue with the root cause</p>
+    </div>
+  </div>
+  <div class="col" style="margin-right: 0;">
+    <div class="colhead"><p>It needs a fix</p></div>
+    <div class="box box-slow">
+      <p class="lead">Someone writes the fix</p>
+      <p class="sub">whenever it fits into their day</p>
+    </div>
+    <div class="box box-fast">
+      <p class="lead">A draft fix is waiting</p>
+      <p class="sub">a real PR, ready for someone to check</p>
+    </div>
+  </div>
+</div>
+
+<div class="foot">
+  <p>A person still decides what merges — Claude just makes sure nothing waits on a person to start.</p>
+</div>
+</body>
+</html>

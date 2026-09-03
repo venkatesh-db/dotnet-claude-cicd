@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+html { background: #F2F3F5; }
+body {
+  width: 720pt; height: 405pt; margin: 0; padding: 0;
+  background: #F2F3F5; font-family: Arial, sans-serif;
+  display: flex; flex-direction: column;
+}
+.head { margin: 26pt 30pt 0 30pt; }
+.eyebrow { color: #C8622F; font-family: "Courier New", monospace; font-size: 11pt; letter-spacing: 1.5pt; margin: 0 0 6pt 0; }
+h1 { color: #1A1D23; font-family: "Trebuchet MS", sans-serif; font-size: 24pt; font-weight: bold; margin: 0; }
+.sub { color: #5B6472; font-family: Arial, sans-serif; font-size: 12.5pt; margin: 8pt 0 0 0; }
+
+.flow { margin: 60pt 30pt 0 30pt; display: flex; align-items: center; }
+.step { width: 100pt; }
+.step .box { height: 96pt; border-radius: 8pt; padding: 10pt; background: #FFFFFF; border: 2px solid #D8DBE0; }
+.step .box.gate { background: #DBE8F4; border: 2px solid #2F6FB0; }
+.step p { margin: 0; font-family: Arial, sans-serif; }
+.step .lead { font-size: 11pt; font-weight: bold; color: #1A1D23; }
+.step .sub2 { font-size: 9pt; color: #5B6472; margin-top: 4pt; }
+.gate .lead { color: #2F6FB0; }
+.arrow { width: 40pt; display: flex; align-items: center; justify-content: center; }
+.arrow p { font-size: 20pt; color: #9AA3AF; margin: 0; }
+
+.note { margin: 40pt 30pt 0 30pt; }
+.note p { font-family: Arial, sans-serif; font-size: 12pt; color: #5B6472; margin: 0; }
+.note b { color: #1A1D23; }
+</style>
+</head>
+<body>
+<div class="head">
+  <p class="eyebrow">HOW IT WORKS</p>
+  <h1>The same shape, three times</h1>
+  <p class="sub">PR review, CI-failure triage, and patch proposals all follow this one pipeline.</p>
+</div>
+
+<div class="flow">
+  <div class="step">
+    <div class="box">
+      <p class="lead">Something happens</p>
+      <p class="sub2">a PR opens, or a build fails</p>
+    </div>
+  </div>
+  <div class="arrow"><p>&#8594;</p></div>
+  <div class="step">
+    <div class="box">
+      <p class="lead">Claude reads it</p>
+      <p class="sub2">the diff, or the failure log</p>
+    </div>
+  </div>
+  <div class="arrow"><p>&#8594;</p></div>
+  <div class="step">
+    <div class="box">
+      <p class="lead">Claude drafts a reply</p>
+      <p class="sub2">a review, a summary, a fix</p>
+    </div>
+  </div>
+  <div class="arrow"><p>&#8594;</p></div>
+  <div class="step">
+    <div class="box">
+      <p class="lead">Posted to GitHub</p>
+      <p class="sub2">comment, issue, or draft PR</p>
+    </div>
+  </div>
+  <div class="arrow"><p>&#8594;</p></div>
+  <div class="step">
+    <div class="box gate">
+      <p class="lead">A person decides</p>
+      <p class="sub2">nothing merges on its own</p>
+    </div>
+  </div>
+</div>
+
+<div class="note">
+  <p><b>Every path ends at that last box.</b> Claude never pushes to main and never auto-merges anything in this repo.</p>
+</div>
+</body>
+</html>
