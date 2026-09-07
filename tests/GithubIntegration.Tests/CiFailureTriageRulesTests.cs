@@ -48,6 +48,14 @@ public class CiFailureTriageRulesTests
     }
 
     [Fact]
+    public void LabelsFor_UnauthorizedLog_ReturnsAuthCredentialIssueLabel()
+    {
+        var labels = CiFailureTriageRules.LabelsFor("Response status code does not indicate success: 401 (Unauthorized)");
+
+        Assert.Contains("auth:credential-issue", labels);
+    }
+
+    [Fact]
     public void BuildTriage_ReturnsRecordWithComputedLabels()
     {
         var triage = CiFailureTriageRules.BuildTriage(
